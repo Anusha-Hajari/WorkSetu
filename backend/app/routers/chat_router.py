@@ -114,6 +114,19 @@ def check_chat_access(job_id: str, user=Depends(verify_token)):
         else:
             partner_name = job.get("postedBy", {}).get("name", "")
 
+    # Find partner isOnline status
+    partner_id = None
+    if "posted_by_name" in job:
+        partner_id = job.get("selected_worker") if role == "poster" else job.get("posted_by")
+    else:
+        partner_id = job.get("assignedTo") if role == "poster" else job.get("postedBy", {}).get("id")
+
+    partner_online = False
+    if partner_id:
+        partner_user = db.users.find_one({"_id": ObjectId(partner_id)})
+        if partner_user:
+            partner_online = partner_user.get("isOnline", False)
+
     # Find booking_id if confirmed
     booking_id = None
     if job.get("poster_agreed") and job.get("worker_agreed"):
@@ -130,6 +143,8 @@ def check_chat_access(job_id: str, user=Depends(verify_token)):
         "job_id": job_id,
         "booking_id": booking_id,
         "partner_name": partner_name,
+        "partner_id": str(partner_id) if partner_id else None,
+        "partner_online": partner_online,
         "status": job.get("status"),
         "poster_agreed": job.get("poster_agreed", False),
         "worker_agreed": job.get("worker_agreed", False)
