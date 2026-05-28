@@ -379,8 +379,19 @@ function ChatPage() {
           )}
 
           {isConfirmed && (
-            <div className="mb-4 p-3 rounded-lg text-center" style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
-              <span style={{ color: "#10b981", fontSize: 13, fontWeight: "bold" }}>✅ Job Confirmed. Tracking and work can now proceed!</span>
+            <div className="mb-4 p-5 rounded-xl text-center border animate-bounce" style={{ background: "rgba(16, 185, 129, 0.08)", borderColor: "rgba(16, 185, 129, 0.3)", boxShadow: "0 8px 32px rgba(16, 185, 129, 0.1)" }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
+              <h3 className="font-bold text-base mb-1" style={{ color: "#10b981" }}>Contract Finalized & Escrow Secured!</h3>
+              <p className="text-xs text-slate-300 leading-relaxed mb-4">
+                The agreement is locked and live work tracking has been activated. You will be redirected to the tracker in a moment, or you can go immediately by clicking below.
+              </p>
+              <button
+                onClick={() => navigate(`/tracking/${bookingId}`)}
+                className="btn-primary text-xs font-bold w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                style={{ border: "none" }}
+              >
+                Launch Live Work Tracker 🚀
+              </button>
             </div>
           )}
 
@@ -549,7 +560,24 @@ function ChatPage() {
 
         {/* Right Column: Live Work Tracker */}
         <div style={{ position: "sticky", top: 88 }}>
-          <WorkTracker bookingId={bookingId || jobId} />
+          <WorkTracker 
+            bookingId={bookingId || jobId} 
+            onActionProcessed={async () => {
+              try {
+                const accessRes = await api.get(`/api/chat-access/${jobId}`);
+                if (accessRes.data.allowed) {
+                  setJobStatus(accessRes.data.status);
+                  setPosterAgreed(accessRes.data.poster_agreed);
+                  setWorkerAgreed(accessRes.data.worker_agreed);
+                  setBookingId(accessRes.data.booking_id);
+                }
+                const msgRes = await api.get(`/api/chat/${jobId}`);
+                setMessages(Array.isArray(msgRes.data) ? msgRes.data : []);
+              } catch (e) {
+                console.error("Failed to refresh state after side action:", e);
+              }
+            }}
+          />
         </div>
 
       </div>

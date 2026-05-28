@@ -252,6 +252,12 @@ def complete_job(booking_id: str, background_tasks: BackgroundTasks, user=Depend
         {"$set": {"status": "Completed"}}
     )
     
+    if not is_urgent:
+        db.bookings.update_one(
+            {"_id": ObjectId(booking_id)},
+            {"$set": {"status": "completed"}}
+        )
+    
     collection = db.urgent_jobs if is_urgent else db.jobs
     collection.update_one(
         {"_id": ObjectId(job_id)},

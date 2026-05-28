@@ -3,6 +3,8 @@ import { useFetch } from "../hooks/useFetch";
 import JobCard from "../components/JobCard";
 import Loader from "../components/Loader";
 import UrgentFeed from "../components/UrgentFeed";
+import { Link } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 
 const SKILLS = ["All","Cook","Cleaner","Coder","Video Editor","HR","Tutor","Plumber","Designer"];
 
@@ -10,6 +12,7 @@ export default function Jobs() {
   const [skill, setSkill] = useState("All");
   const [type, setType]   = useState("all");
   const [search, setSearch] = useState("");
+  const { user } = useAuth();
 
   const query = `?skill=${skill !== "All" ? skill : ""}&type=${type !== "all" ? type : ""}&search=${search}`;
   const { data: jobs, loading } = useFetch(`/api/jobs${query}`);
@@ -38,18 +41,41 @@ export default function Jobs() {
       }} />
 
       {/* ── REGULAR JOBS ── */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{
-          fontFamily: "'Cinzel', serif",
-          fontSize: 22, fontWeight: 900,
-          color: "var(--text-primary)",
-          letterSpacing: 1, marginBottom: 4,
-        }}>
-          Browse Jobs
-        </h1>
-        <p style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: "'Inter', sans-serif" }}>
-          Find your next opportunity or the perfect person for the job.
-        </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{
+            fontFamily: "'Cinzel', serif",
+            fontSize: 22, fontWeight: 900,
+            color: "var(--text-primary)",
+            letterSpacing: 1, marginBottom: 4,
+          }}>
+            Browse Jobs
+          </h1>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: "'Inter', sans-serif" }}>
+            Find your next opportunity or the perfect person for the job.
+          </p>
+        </div>
+        {user && (
+          <Link
+            to="/post-job"
+            className="btn-primary"
+            style={{
+              padding: "8px 20px",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.5px",
+              textTransform: "uppercase",
+              fontFamily: "'Inter', sans-serif",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              borderRadius: 3,
+            }}
+          >
+            <span>📋</span> Post a Job
+          </Link>
+        )}
       </div>
 
       {/* Search + type filter */}

@@ -51,7 +51,7 @@ def _check_chat_access(job_id: str, user: dict):
                 detail="Chat is only available between the poster and the selected worker",
             )
 
-        if job.get("status") not in ("in_progress", "work_undergoing", "completed"):
+        if job.get("status") not in ("open", "in_progress", "work_undergoing", "completed", "filled"):
             raise HTTPException(
                 status_code=403,
                 detail="Chat is not enabled yet — a worker must be selected first",
@@ -79,7 +79,7 @@ def _check_chat_access(job_id: str, user: dict):
                 detail="Chat is only available between the poster and the assigned worker",
             )
 
-        if job.get("status") not in ("assigned", "in_progress", "work_undergoing", "completed"):
+        if job.get("status") not in ("open", "assigned", "in_progress", "work_undergoing", "completed", "filled"):
             raise HTTPException(
                 status_code=403,
                 detail="Chat is not enabled yet — a worker must accept the job first",
@@ -133,9 +133,15 @@ def check_chat_access(job_id: str, user=Depends(verify_token)):
         if "posted_by_name" in job:
             booking_id = job_id
         else:
-            booking = db.bookings.find_one({"job_id": job_id})
-            if booking:
-                booking_id = str(booking["_id"])
+            worker_uid = user_id if role == "worker" else job.get("assignedTo")
+            if worker_uid:
+                booking = db.bookings.find_one({"job_id": job_id, "worker_id": worker_uid})
+                if booking:
+                    booking_id = str(booking["_id"])
+            if not booking_id:
+                booking = db.bookings.find_one({"job_id": job_id})
+                if booking:
+                    booking_id = str(booking["_id"])
 
     return {
         "allowed": True,
@@ -305,12 +311,16 @@ def chat_action(job_id: str, body: ChatAction, background_tasks: BackgroundTasks
             poster_id = job.get("posted_by") if is_urgent else job.get("postedBy", {}).get("id")
             escrow_amount = job.get("escrow_amount", 0)
             
+            db_user = db.users.find_one({"_id": ObjectId(user_id)})
+            worker_email = db_user.get("email") if db_user else None
+            
             booking_doc = {
                 "job_id": job_id,
                 "job_title": job.get("title", "Untitled"),
                 "poster_id": poster_id,
                 "worker_id": user_id,
                 "worker_name": user_name,
+                "user_email": worker_email,
                 "escrow_amount": escrow_amount,
                 "status": "in_progress",
                 "created_at": datetime.utcnow().isoformat() + "Z"
@@ -339,9 +349,6 @@ def chat_action(job_id: str, body: ChatAction, background_tasks: BackgroundTasks
             background_tasks.add_task(broadcast_job_status, job_id, new_status)
             
             # 3. Update application/applicant statuses
-            db_user = db.users.find_one({"_id": ObjectId(user_id)})
-            worker_email = db_user.get("email") if db_user else None
-            
             if is_urgent:
                 # Update urgent jobs applicants statuses
                 urgent_job = db.urgent_jobs.find_one({"_id": ObjectId(job_id)})
@@ -368,6 +375,45 @@ def chat_action(job_id: str, body: ChatAction, background_tasks: BackgroundTasks
                         {"$set": {"status": "rejected"}}
                     )
             
+            # 4. Notify the poster (recruiter) that the worker accepted the job offer
+            background_tasks.add_task(
+                notify_user,
+                str(poster_id),
+                {
+                    "title": "Offer Accepted!",
+                    "message": f"{user_name} has accepted the job offer for '{job.get('title')}'!",
+                    "link": f"/tracking/{job_id if is_urgent else booking_id}"
+                }
+            )
+
+            # 5. Initialize the tracking document with a baseline "first step" update
+            initial_update = {
+                "id": str(ObjectId()),
+                "text": "Agreement Finalized & Secured: Terms signed, budget secured in Escrow. Work tracking is now active.",
+                "imageUrl": None,
+                "mediaUrl": None,
+                "media_verdict": None,
+                "submitted_at": datetime.utcnow().isoformat() + "Z",
+                "ai_score": 100.0,
+                "ai_feedback": "Baseline system verification complete. Escrow locked.",
+                "status": "approved_by_poster"
+            }
+            
+            tracking_id = job_id if is_urgent else booking_id
+            db.tracking.update_one(
+                {"booking_id": tracking_id},
+                {
+                    "$setOnInsert": {
+                        "job_id": job_id,
+                        "status": "In Progress"
+                    },
+                    "$push": {
+                        "updates": initial_update
+                    }
+                },
+                upsert=True
+            )
+
             system_msg = f"SYSTEM: {user_name} has joined the team! A unique contract has been created. Tracking for this worker can now begin at Booking #{booking_id}."
         
         elif action == "worker_reject":

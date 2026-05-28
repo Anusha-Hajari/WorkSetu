@@ -6,7 +6,9 @@ const STATUS_COLORS = {
   confirmed:  { bg: "rgba(16,185,129,0.1)",  color: "#10b981", label: "Confirmed" },
   pending:    { bg: "rgba(251,191,36,0.1)",   color: "#fbbf24", label: "Pending"   },
   cancelled:  { bg: "rgba(239,68,68,0.1)",    color: "#ef4444", label: "Cancelled" },
-  completed:  { bg: "rgba(107,114,128,0.1)",  color: "#9ca3af", label: "Completed" },
+  completed:  { bg: "rgba(16,185,129,0.15)", color: "#10b981", label: "Completed" },
+  in_progress: { bg: "rgba(99,102,241,0.15)",  color: "#6366f1", label: "In Progress" },
+  "In Progress": { bg: "rgba(99,102,241,0.15)", color: "#6366f1", label: "In Progress" },
 };
 
 function MyBookings() {
@@ -66,12 +68,23 @@ function MyBookings() {
                         Booked {b.created_at ? new Date(b.created_at).toLocaleDateString("en-IN") : "—"}
                       </div>
                     </div>
-                    <span
-                      className="text-xs font-bold px-3 py-1 rounded-full"
-                      style={{ background: s.bg, color: s.color }}
-                    >
-                      {s.label}
-                    </span>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                      <span
+                        className="text-xs font-bold px-3 py-1 rounded-full"
+                        style={{ background: s.bg, color: s.color }}
+                      >
+                        {s.label}
+                      </span>
+                      {(b.status === "in_progress" || b.status === "completed" || b.status === "confirmed") && (
+                        <Link
+                          to={`/tracking/${b._id}`}
+                          className="text-[10px] font-bold px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                          style={{ textDecoration: "none" }}
+                        >
+                          {b.status === "completed" ? "View History 🛰️" : "Track Live 📍"}
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 );
               })}
