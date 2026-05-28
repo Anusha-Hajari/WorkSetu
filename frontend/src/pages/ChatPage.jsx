@@ -151,7 +151,7 @@ function ChatPage() {
     if (posterAgreed && workerAgreed && bookingId) {
       const timer = setTimeout(() => {
         navigate(`/tracking/${bookingId}`);
-      }, 3000); // Give them 3 seconds to see the confirmation message
+      }, 2000); // Give them 2 seconds to see the confirmation message
       return () => clearTimeout(timer);
     }
   }, [posterAgreed, workerAgreed, bookingId, navigate]);

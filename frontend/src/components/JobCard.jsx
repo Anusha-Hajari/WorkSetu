@@ -66,7 +66,7 @@ export default function JobCard({ job }) {
                 ? "border-zinc-500/30 text-zinc-500 bg-zinc-500/5" 
                 : "border-indigo-500/30 text-indigo-500 bg-indigo-500/5 animate-pulse"
             }`}>
-              {localStatus === "assigned" || localStatus === "in_progress" || localStatus === "work_undergoing" ? "Work Undergoing" : "Completed"}
+              {localStatus === "assigned" || localStatus === "in_progress" || localStatus === "work_undergoing" || localStatus === "filled" ? "Work Undergoing" : "Completed"}
             </span>
           )}
         </div>

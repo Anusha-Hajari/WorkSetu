@@ -6,7 +6,7 @@ from app.services.auth_service import verify_token
 from bson import ObjectId
 from datetime import datetime
 import asyncio
-from app.socket_manager import notify_chat, notify_user
+from app.socket_manager import notify_chat, notify_user, broadcast_job_status
 
 router = APIRouter()
 
@@ -276,8 +276,24 @@ def chat_action(job_id: str, body: ChatAction, background_tasks: BackgroundTasks
             # Reset job back to open state
             if is_urgent:
                 collection.update_one({"_id": ObjectId(job_id)}, {"$set": {"status": "open", "selected_worker": None, "selected_worker_name": None, "poster_agreed": False, "worker_agreed": False, "escrow_amount": 0}})
+                # Reset urgent jobs applicants status back to pending
+                urgent_job = db.urgent_jobs.find_one({"_id": ObjectId(job_id)})
+                if urgent_job:
+                    applicants = urgent_job.get("applicants", [])
+                    for app in applicants:
+                        app["status"] = "pending"
+                    db.urgent_jobs.update_one(
+                        {"_id": ObjectId(job_id)},
+                        {"$set": {"applicants": applicants}}
+                    )
             else:
                 collection.update_one({"_id": ObjectId(job_id)}, {"$set": {"status": "open", "assignedTo": None, "poster_agreed": False, "worker_agreed": False, "escrow_amount": 0}})
+                # Reset standard job applications status back to pending
+                db.applications.update_many(
+                    {"job_id": job_id},
+                    {"$set": {"status": "pending"}}
+                )
+            background_tasks.add_task(broadcast_job_status, job_id, "open")
             system_msg = f"SYSTEM: {user_name} has chosen to look for another worker. The job is now open again. (Any escrowed funds refunded)"
             
     elif role == "worker":
@@ -322,6 +338,36 @@ def chat_action(job_id: str, body: ChatAction, background_tasks: BackgroundTasks
             )
             background_tasks.add_task(broadcast_job_status, job_id, new_status)
             
+            # 3. Update application/applicant statuses
+            db_user = db.users.find_one({"_id": ObjectId(user_id)})
+            worker_email = db_user.get("email") if db_user else None
+            
+            if is_urgent:
+                # Update urgent jobs applicants statuses
+                urgent_job = db.urgent_jobs.find_one({"_id": ObjectId(job_id)})
+                if urgent_job:
+                    applicants = urgent_job.get("applicants", [])
+                    for app in applicants:
+                        if app.get("user_id") == user_id:
+                            app["status"] = "accepted"
+                        else:
+                            app["status"] = "rejected"
+                    db.urgent_jobs.update_one(
+                        {"_id": ObjectId(job_id)},
+                        {"$set": {"applicants": applicants}}
+                    )
+            else:
+                # Standard job: update the applications collection
+                if worker_email:
+                    db.applications.update_one(
+                        {"job_id": job_id, "user_email": worker_email},
+                        {"$set": {"status": "accepted"}}
+                    )
+                    db.applications.update_many(
+                        {"job_id": job_id, "user_email": {"$ne": worker_email}},
+                        {"$set": {"status": "rejected"}}
+                    )
+            
             system_msg = f"SYSTEM: {user_name} has joined the team! A unique contract has been created. Tracking for this worker can now begin at Booking #{booking_id}."
         
         elif action == "worker_reject":
@@ -337,6 +383,23 @@ def chat_action(job_id: str, body: ChatAction, background_tasks: BackgroundTasks
                 record_transaction(poster_id, "escrow_refund", escrow_amount, f"Escrow refunded (Worker declined) for job: {job.get('title')}", job_id)
 
             collection.update_one({"_id": ObjectId(job_id)}, {"$set": {"status": "open", "poster_agreed": False, "worker_agreed": False, "escrow_amount": 0}})
+            # Reset all application statuses to pending
+            if is_urgent:
+                urgent_job = db.urgent_jobs.find_one({"_id": ObjectId(job_id)})
+                if urgent_job:
+                    applicants = urgent_job.get("applicants", [])
+                    for app in applicants:
+                        app["status"] = "pending"
+                    db.urgent_jobs.update_one(
+                        {"_id": ObjectId(job_id)},
+                        {"$set": {"applicants": applicants}}
+                    )
+            else:
+                db.applications.update_many(
+                    {"job_id": job_id},
+                    {"$set": {"status": "pending"}}
+                )
+            background_tasks.add_task(broadcast_job_status, job_id, "open")
             system_msg = f"SYSTEM: {user_name} has declined the offer. The job is now open again."
 
     if system_msg:

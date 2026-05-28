@@ -154,15 +154,33 @@ def get_all_jobs(skill: str = "", type: str = "", search: str = ""):
 # ── GET MY POSTS ────────────────────────────────────────────────────
 @router.get("/my-posts")
 def get_my_posts(user=Depends(verify_token)):
+    from datetime import datetime
     db_user = db.users.find_one({"email": user["email"]})
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
     user_id = str(db_user["_id"])
+    
+    # 1. Fetch standard jobs
     jobs = list(db.jobs.find({"postedBy.id": user_id}).sort("created_at", -1))
     for job in jobs:
         job["_id"] = str(job["_id"])
-        job["created_at"] = job["created_at"].isoformat() if job.get("created_at") else ""
+        job["created_at"] = job["created_at"].isoformat() if isinstance(job.get("created_at"), datetime) else str(job.get("created_at"))
+        job["requiredSkill"] = job.get("requiredSkill", job.get("skill", ""))
+        job["is_urgent"] = False
+
+    # 2. Fetch urgent jobs
+    urgent_jobs = list(db.urgent_jobs.find({"posted_by": user_id}).sort("created_at", -1))
+    for uj in urgent_jobs:
+        uj["_id"] = str(uj["_id"])
+        uj["requiredSkill"] = uj.get("skill", "")
+        uj["created_at"] = uj["created_at"].isoformat() if isinstance(uj.get("created_at"), datetime) else str(uj.get("created_at"))
+        uj["is_urgent"] = True
+        uj["type"] = "Urgent"
+        jobs.append(uj)
+
+    # 3. Sort all jobs by created_at descending
+    jobs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return jobs
 
 

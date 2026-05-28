@@ -49,7 +49,7 @@ export default function UrgentJobCard({ job, onUpdated }) {
 
   const isOwner = user && localJob?.posted_by === user?.id;
   const isExpired = new Date(localJob?.expires_at) < new Date();
-  const isInProgress = localJob?.status === "in_progress" || localJob?.status === "work_undergoing";
+  const isInProgress = localJob?.status === "in_progress" || localJob?.status === "work_undergoing" || localJob?.status === "filled";
   const isCompleted = localJob?.status === "completed";
   const isOpen = !isExpired && !isInProgress && !isCompleted;
 

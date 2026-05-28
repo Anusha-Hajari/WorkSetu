@@ -9,6 +9,7 @@ const STATUS_COLORS = {
   assigned:        { bg: "rgba(99,102,241,0.1)",  color: "#818cf8", label: "Work Undergoing" },
   in_progress:     { bg: "rgba(251,191,36,0.1)",  color: "#fbbf24", label: "Work Undergoing" },
   work_undergoing: { bg: "rgba(99,102,241,0.1)",  color: "#818cf8", label: "Work Undergoing" },
+  filled:          { bg: "rgba(99,102,241,0.1)",  color: "#818cf8", label: "Work Undergoing" },
   completed:       { bg: "rgba(107,114,128,0.1)", color: "#9ca3af", label: "completed" },
 };
 
@@ -77,8 +78,15 @@ function MyPosts() {
                 return (
                   <div key={job._id} className="card p-5 flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-                        {job.title || "Untitled Job"}
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <div className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>
+                          {job.title || "Untitled Job"}
+                        </div>
+                        {job.is_urgent && (
+                          <span className="text-[9px] font-black uppercase tracking-tighter bg-red-500/10 text-red-500 border border-red-500/20 px-1.5 py-0.5 rounded">
+                            Urgent
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-2 mt-2">
                         <span className="text-xs px-2 py-0.5 rounded" style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}>
@@ -109,7 +117,7 @@ function MyPosts() {
                         {s.label || job.status || "open"}
                       </span>
                       <Link
-                        to={`/jobs/${job._id}`}
+                        to={job.is_urgent ? `/chat/${job._id}` : `/jobs/${job._id}`}
                         className="text-xs"
                         style={{ color: "var(--accent-text)" }}
                       >
