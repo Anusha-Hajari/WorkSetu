@@ -33,11 +33,11 @@ app = FastAPI(title="WorkSetu API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://worksetu.vercel.app",
-        "https://*.vercel.app",
-        "*"  # For testing
+        "https://worksetu-rho.vercel.app",          # Your production frontend
+                
+        "https://worksetu-git-*.vercel.app",        # Vercel preview deployments
+        "http://localhost:5173",                    # Local development
+        "http://localhost:3000",                    # Alternative local
     ],
     allow_credentials=True,
     allow_methods=["*"],
